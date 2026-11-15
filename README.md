@@ -1,52 +1,90 @@
-# 🚰 Hydro - Gestão Inteligente de Água (Smart Home 2050)
+# 💧 Hydro — Sistema Inteligente de Monitoramento de Água
 
-> Projeto desenvolvido para a **ExpoTech 2026.2 - Missão 2050** (Categoria START).
+Turma: CDC Noturno — 1º Semestre
 
----
-
-## 📌 1. Product Management
-
-### Contexto & Problema
-Em 2050, a gestão sustentável de recursos hídricos em casas inteligentes é fundamental. O consumo invisível de água e pequenos vazamentos não detectados geram grande desperdício financeiro e impacto ambiental.
-
-### Público-Alvo & Persona
-* **Persona:** Lucas, 30 anos, morador de uma Smart Home focada em eficiência energética e sustentabilidade. Deseja acompanhar o consumo de água em tempo real, prever gastos e evitar surpresas na conta do mês.
-
-### MVP (Minimum Viable Product)
-* **Registro de Consumo:** Inserção do volume de água consumido por cômodo da casa.
-* **Dashboard Visual:** Acompanhamento do progresso em relação à meta diária estabelecida.
-* **Motor Computacional:** Algoritmo em Python para validação de limites, cálculo de custos em R$ e detecção automática de anomalias (vazamentos).
-
-### Priorização de Backlog (Matriz MoSCoW)
-* **Must Have:** Cadastro de leituras de água, cálculo de total acumulado do dia, indicador de estouro de meta.
-* **Should Have:** Detecção algorítmica de picos repentinos de consumo (vazamento), dashboard no-code responsivo.
-* **Could Have:** Notificações automáticas via Make/n8n disparadas para o celular do morador.
-* **Won't Have (nesta versão):** Integração física com sensores IoT via hardware em tempo real.
+##  Integrantes do Grupo
+* Gustavo Henrique Macedo Marques — RA 284579 (Líder)
+* Sofia Camacho — RA 284192
+* Davi Barros Gotado — RA 295153
+* Amanda Maria de Sousa Gabriel — RA 275780
 
 ---
 
-## 🛠️ 2. No-Code Development Platforms (Bubble.io)
+##  Visão Geral do Projeto
 
-O aplicativo **Hydro** foi construído na plataforma no-code **Bubble.io** (`https://hydro-91774.bubbleapps.io/version-test`).
-
-* **Modelagem de Dados Visual (Data Types):**
-  * `User`: Guarda as credenciais do morador e a sua `meta_diaria` em litros.
-  * `Leitura_Agua`: Armazena cada evento de uso, contendo `volume_litros`, `comodo`, `data_hora` e o vínculo com o `User`.
-* **Interface & Autenticação:**
-  * Fluxo nativo de Sign Up / Log In de utilizador.
-  * Formulário responsivo com campo numérico e *dropdown* para seleção de cômodos.
-  * Painel de monitoramento do progresso acumulado.
+* **O Problema:** Falta de visibilidade sobre o consumo residencial de água e diagnóstico tardio de vazamentos. Na maioria das residências, anomalias só são descobertas semanas depois na fatura mensal, gerando prejuízo financeiro e desperdício ambiental.
+* **A Persona:** Morador ou gestor residencial consciente que busca controlar gastos, evitar danos estruturais por vazamentos e acompanhar o consumo diário de forma simples e visual.
+* **A Solução (Hydro):** Plataforma modular de monitoramento inteligente que integra interface **No-Code (Bubble)**, API REST em **Python (FastAPI)** para cálculo de cotas e detecção de anomalias, e automação **Low-Code (Make / n8n)** para disparo de alertas em tempo real por e-mail.
+* **Ganho de Eficiência:** Reduz o tempo de resposta a vazamentos e estouros de consumo de **semanas para segundos**.
 
 ---
 
-## 🐍 3. Computational Logic Using Python
+##  Arquitetura do Sistema
 
-O script `hydro.py` funciona como o motor de inteligência do produto, aplicando as seguintes regras de negócio:
+### 1. Front-End & Banco de Dados No-Code (Bubble)
+Desenvolvido para oferecer transparência e gestão diária ao morador:
+* **Painel Principal (`/painel`):** Dashboard com total consumido, acompanhamento da meta diária e registro setorizado por cômodo (Cozinha, Lavanderia, Banheiro).
+* **Histórico (`/historico`):** Consulta dinâmica ordenada por data e cômodo para análise de tendências e auditoria de alertas.
+* **Estrutura do Banco de Dados:**
+  * `User`: Armazena nome, e-mail e meta diária do usuário.
+  * `Leitura_Agua`: Registra volume em litros, cômodo, data/hora e vínculo com o usuário.
+* **Link da Aplicação:** [Acessar Hydro no Bubble](https://hydro-91774.bubbleapps.io/version-test/painel)
 
-1. **Conversão Financeira:** Calcula o valor acumulado em R$ com base no consumo em metros cúbicos ($m^3$).
-2. **Validação de Meta:** Compara o volume total do dia com o limite cadastrado pelo morador.
-3. **Algoritmo de Detecção de Anomalias:** Identifica fluxos atípicos num único evento ($\ge 80\text{L}$), emitindo alerta de prioridade crítica para prevenção de vazamentos.
+---
 
-### Como executar o código:
-```bash
-python hydro.py
+### 2. Back-End & Regras de Negócio (Python + FastAPI)
+O arquivo `hydro.py` implementa uma API RESTful responsável pelo processamento matemático e validação das regras de segurança:
+* **Cota Per Capita (`200L/pessoa`):** Calcula o consumo médio individual (`consumo_diario / numero_pessoas`) e ativa `alerta_cota` caso ultrapasse 200 litros por morador.
+* **Detecção de Vazamento (`700L/dia`):** Avalia o volume total diário e ativa `alerta_vazamento` caso ultrapasse 700 litros.
+
+#### Código-Fonte (`hydro.py`)
+```python
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="Sistema de Monitoramento de Água"
+)
+
+COTA_POR_PESSOA = 200
+LIMITE_ALERTA = 700
+
+
+@app.get("/")
+def inicio():
+    return {
+        "mensagem": "Sistema de Monitoramento de Água"
+    }
+
+
+@app.post("/consumo")
+def calcular_consumo(
+    consumo_diario: float,
+    numero_pessoas: int
+):
+    if numero_pessoas <= 0 or consumo_diario < 0:
+        return {
+            "erro": "Valores inválidos"
+        }
+
+    consumo_por_pessoa = (
+        consumo_diario / numero_pessoas
+    )
+
+    alerta_cota = (
+        consumo_por_pessoa > COTA_POR_PESSOA
+    )
+
+    alerta_vazamento = (
+        consumo_diario > LIMITE_ALERTA
+    )
+
+    return {
+        "consumo_diario": consumo_diario,
+        "numero_pessoas": numero_pessoas,
+        "consumo_por_pessoa": round(
+            consumo_por_pessoa, 2
+        ),
+        "cota_por_pessoa": COTA_POR_PESSOA,
+        "alerta_cota": alerta_cota,
+        "alerta_vazamento": alerta_vazamento
+    }
